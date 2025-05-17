@@ -2,8 +2,25 @@ const routes = [
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
+    meta: { requiresAuth: true },
     children: [
       { path: '', component: () => import('pages/IndexPage.vue') }
+    ]
+  },
+  {
+    path: '/login',
+    component: () => import('layouts/MainLayout.vue'),
+    meta: { guest: true },
+    children: [
+      { path: '', component: () => import('pages/LoginPage.vue') }
+    ]
+  },
+  {
+    path: '/register',
+    component: () => import('layouts/MainLayout.vue'),
+    meta: { guest: true },
+    children: [
+      { path: '', component: () => import('pages/RegisterPage.vue') }
     ]
   },
 

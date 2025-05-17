@@ -145,23 +145,29 @@ def save_to_json(devices: List[UPnPDevice], filename: str = 'upnp_scan.json'):
         json.dump([device.__dict__ for device in devices], f, indent=2)
 
 def main():
-    print("🔍 Starting UPnP network scan...")
+    import sys
     devices = scan_upnp_network()
     
-    if not devices:
-        print("❌ No devices found")
+    result = {
+        "protocol": "upnp",
+        "timestamp": datetime.now().isoformat(),
+        "devices": [d.__dict__ for d in devices],
+        "count": len(devices)
+    }
+
+    # Solo in modalità JSON stampa l'output pulito
+    if '--json' in sys.argv:
+        print(json.dumps(result))
         return
 
-    print(f"✅ Found {len(devices)} devices:")
+    if not devices:
+        return
 
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
-    
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"{output_dir}/upnp_scan_{timestamp}.json"
-    
-    save_to_json(devices, output_file)
-    print(f"📁 Results saved to {output_file}")
+    print(f"Trovati {len(devices)} dispositivi")
+    output_file = f"output/upnp_scan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(output_file, 'w') as f:
+        json.dump(result, f)
+    print(f"Salvato in {output_file}")
 
 if __name__ == "__main__":
     main()

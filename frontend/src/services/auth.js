@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-// Configurazione separata per Sanctum e API
 const sanctumClient = axios.create({
-  baseURL: '/',  // Base URL diverso per Sanctum
+  baseURL: '/',  
   withCredentials: true,
   headers: {
     'Accept': 'application/json',
@@ -11,7 +10,7 @@ const sanctumClient = axios.create({
 });
 
 const apiClient = axios.create({
-  baseURL: '/api',  // Prefisso API normale
+  baseURL: '/api',  
   withCredentials: true,
   headers: {
     'Accept': 'application/json',
@@ -22,7 +21,6 @@ const apiClient = axios.create({
 const authService = {
   async login(email, password) {
     try {
-      // Prima chiamata a Sanctum (senza /api)
       await sanctumClient.get('/sanctum/csrf-cookie');
       
       // Chiamata API normale (con /api)

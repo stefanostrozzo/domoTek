@@ -1,102 +1,161 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
+  <q-layout view="lHh Lpr lFf" class="bg-dark">
+    <q-header elevated class="bg-dark text-white">
       <q-toolbar>
-        <q-btn
-          flat
-          dense
-          round
-          icon="menu"
-          aria-label="Menu"
-          @click="toggleLeftDrawer"
-        />
-
         <q-toolbar-title>
-          Quasar App
+          DomoTek
         </q-toolbar-title>
 
-        <div>Quasar v{{ $q.version }}</div>
+        <q-space />
+
+        <q-btn flat round dense icon="notifications" class="q-mr-sm">
+          <q-badge color="negative" floating>2</q-badge>
+        </q-btn>
+
+        <q-btn flat round dense>
+          <q-avatar size="32px">
+            <q-img :src="userAvatar" />
+          </q-avatar>
+          <q-menu class="bg-dark text-white">
+            <q-list style="min-width: 150px">
+              <q-item clickable v-close-popup @click="goToProfile">
+                <q-item-section avatar>
+                  <q-icon name="person" color="primary" />
+                </q-item-section>
+                <q-item-section>Profilo</q-item-section>
+              </q-item>
+
+              <q-item clickable v-close-popup @click="goToSettings">
+                <q-item-section avatar>
+                  <q-icon name="settings" color="primary" />
+                </q-item-section>
+                <q-item-section>Impostazioni</q-item-section>
+              </q-item>
+
+              <q-separator color="grey-8" />
+
+              <q-item clickable v-close-popup @click="logout">
+                <q-item-section avatar>
+                  <q-icon name="logout" color="primary" />
+                </q-item-section>
+                <q-item-section>Logout</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
       </q-toolbar>
+
+      <!-- Navigation Tabs -->
+      <q-tabs
+        v-model="activeTab"
+        class="bg-dark text-white"
+        active-color="primary"
+        indicator-color="primary"
+        align="left"
+      >
+        <q-route-tab to="/" name="home" icon="home" label="Home" />
+        <q-route-tab to="/dashboard" name="dashboard" icon="dashboard" label="Dashboard" />
+        <q-route-tab to="/devices" name="devices" icon="devices" label="Dispositivi" />
+        <q-route-tab to="/flows" name="flows" icon="hub" label="Flussi" />
+        <q-route-tab to="/automations" name="automations" icon="auto_awesome" label="Automazioni" />
+      </q-tabs>
     </q-header>
 
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-    >
-      <q-list>
-        <q-item-label
-          header
-        >
-          Essential Links
-        </q-item-label>
-
-        <EssentialLink
-          v-for="link in linksList"
-          :key="link.title"
-          v-bind="link"
-        />
-      </q-list>
-    </q-drawer>
-
-    <q-page-container>
+    <q-page-container class="bg-dark">
       <router-view />
     </q-page-container>
   </q-layout>
 </template>
 
-<script setup>
+<script>
 import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+import { useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
+import { useAuthStore } from 'src/stores/auth'
 
-const linksList = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev'
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework'
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev'
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev'
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev'
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev'
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev'
+export default {
+  name: 'MainLayout',
+  setup() {
+    const router = useRouter()
+    const $q = useQuasar()
+    const authStore = useAuthStore()
+    const userAvatar = ref('https://cdn.quasar.dev/img/avatar.png')
+    const activeTab = ref('home')
+
+    const goToProfile = () => {
+      router.push('/profile')
+    }
+
+    const goToSettings = () => {
+      router.push('/settings')
+    }
+
+    const logout = async () => {
+      try {
+        await authStore.logout()
+        router.push('/login')
+      } catch (error) {
+        $q.notify({
+          color: 'negative',
+          message: 'Errore durante il logout',
+          position: 'top'
+        })
+      }
+    }
+
+    return {
+      userAvatar,
+      activeTab,
+      goToProfile,
+      goToSettings,
+      logout
+    }
   }
-]
-
-const leftDrawerOpen = ref(false)
-
-function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value
 }
 </script>
+
+<style lang="scss">
+.bg-dark {
+  background: #1E1E2E !important;
+}
+
+.text-primary {
+  color: #2196F3 !important;
+}
+
+.text-secondary {
+  color: #00BCD4 !important;
+}
+
+.text-accent {
+  color: #4CAF50 !important;
+}
+
+.q-tabs {
+  .q-tab {
+    &--active {
+      color: #2196F3;
+    }
+    
+    &:hover {
+      background: rgba(33, 150, 243, 0.1);
+    }
+  }
+}
+
+.q-menu {
+  background: #1E1E2E !important;
+  border: 1px solid #2D2D44;
+}
+
+.q-item {
+  &.q-router-link-active {
+    color: #2196F3;
+    background: rgba(33, 150, 243, 0.1);
+  }
+  
+  &:hover {
+    background: rgba(33, 150, 243, 0.05);
+  }
+}
+</style>

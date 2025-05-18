@@ -76,22 +76,41 @@ export default {
 
     const onSubmit = async () => {
       try {
-        await authStore.register(
-          name.value,
-          email.value,
-          password.value,
-          password_confirmation.value
-        );
+        await authStore.register({
+          name: name.value,
+          email: email.value,
+          password: password.value,
+          password_confirmation: password_confirmation.value
+        });
         $q.notify({
           color: 'positive',
-          message: 'Registration successful',
+          message: 'Registrazione completata con successo',
+          position: 'top',
+          timeout: 3000
         });
         router.push('/');
       } catch (error) {
-        $q.notify({
-          color: 'negative',
-          message: error.response?.data?.message || 'Registration failed',
-        });
+        // Gestione degli errori di validazione
+        if (error.response?.data?.errors) {
+          const errors = error.response.data.errors;
+          // Mostra il primo errore per ogni campo
+          Object.keys(errors).forEach(field => {
+            $q.notify({
+              color: 'negative',
+              message: errors[field][0],
+              position: 'top',
+              timeout: 5000
+            });
+          });
+        } else {
+          // Gestione degli altri errori
+          $q.notify({
+            color: 'negative',
+            message: error.response?.data?.message || 'Errore durante la registrazione',
+            position: 'top',
+            timeout: 5000
+          });
+        }
       }
     };
 

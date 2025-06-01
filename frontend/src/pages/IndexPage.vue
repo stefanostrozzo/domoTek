@@ -175,6 +175,7 @@
 <script>
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
+import { api } from '../boot/axios'
 
 export default {
   name: 'IndexPage',
@@ -210,19 +211,42 @@ export default {
     const scanNetwork = async () => {
       scanning.value = true
       try {
-        // Simulazione scansione rete
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        $q.notify({
-          color: 'positive',
-          message: 'Scansione completata',
-          position: 'top'
-        })
+        // Chiamata API al backend per avviare la scansione
+        const response = await api.post('/scan-network', {
+          protocol: 'upnp' // Specifica il protocollo da scansionare
+        });
+
+        if (response.data.status === 'success') {
+          console.log(`Scansione ${response.data.protocol} completata:`, response.data.output);
+          $q.notify({
+            color: 'positive',
+            message: `Scansione ${response.data.protocol} completata`, // Messaggio di successo con il protocollo
+            caption: `Output: ${response.data.output.substring(0, 100)}...`, // Mostra parte dell'output (opzionale)
+            position: 'top',
+            timeout: 5000 // Mantieni il messaggio visibile più a lungo per leggere l'output
+          });
+          // Qui puoi elaborare ulteriormente response.data.output e mostrarlo nell'interfaccia utente
+        } else {
+          console.error(`Errore durante la scansione ${response.data.protocol}:`, response.data.message);
+          console.error("Dettagli errore:", response.data.details);
+          console.error("Output di errore Python:", response.data.errorOutput);
+          $q.notify({
+            color: 'negative',
+            message: `Errore durante la scansione ${response.data.protocol}`,
+            caption: `Dettagli: ${response.data.details || response.data.errorOutput || 'Nessun dettaglio'}`,
+            position: 'top',
+            timeout: 8000 // Mantieni il messaggio visibile più a lungo per gli errori
+          });
+        }
       } catch (error) {
+        console.error("Errore nella chiamata API di scansione:", error);
         $q.notify({
           color: 'negative',
-          message: 'Errore durante la scansione',
-          position: 'top'
-        })
+          message: 'Errore nella comunicazione con il backend',
+          caption: error.message || 'Verifica la console per i dettagli.',
+          position: 'top',
+          timeout: 8000
+        });
       } finally {
         scanning.value = false
       }

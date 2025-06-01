@@ -13,6 +13,18 @@ from typing import List, Dict, Optional
 import time
 import os
 from datetime import datetime
+import sys
+import logging
+
+# Configura il logging su file
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..\outputs', 'upnp_scan_debug.log')
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 @dataclass
 class UPnPDevice:
@@ -87,7 +99,7 @@ def parse_upnp_response(response: str) -> Dict:
 
     return headers
 
-def scan_upnp_network(timeout: int = 3, retries: int = 2) -> List[UPnPDevice]:
+def scan(timeout: int = 3, retries: int = 2) -> List[UPnPDevice]:
     """Scansione rete per dispositivi UPnP"""
     devices = []
     unique_devices = set()
@@ -102,41 +114,91 @@ def scan_upnp_network(timeout: int = 3, retries: int = 2) -> List[UPnPDevice]:
         "\r\n"
     ).encode()
 
-    for _ in range(retries):
+    logging.debug(f"Avvio scansione con timeout={timeout}s, retries={retries}.")
+    print(f"Debug UPnP: Avvio scansione con timeout={timeout}s, retries={retries}. (stderr)", file=sys.stderr)
+
+    for i in range(retries):
+        logging.debug(f"Tentativo {i + 1}/{retries}...")
+        print(f"Debug UPnP: Tentativo {i + 1}/{retries}... (stderr)", file=sys.stderr)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
             sock.settimeout(timeout)
             
+            logging.debug(f"Invio messaggio SSDP a 239.255.255.250:1900")
+            print(f"Debug UPnP: Invio messaggio SSDP a 239.255.255.250:1900 (stderr)", file=sys.stderr)
             sock.sendto(message, ("239.255.255.250", 1900))
             
             start_time = time.time()
+            logging.debug(f"In attesa risposte per {timeout} secondi...")
+            print(f"Debug UPnP: In attesa risposte per {timeout} secondi... (stderr)", file=sys.stderr)
             while time.time() - start_time < timeout:
                 try:
                     data, addr = sock.recvfrom(4096)
                     response = data.decode('utf-8', errors='ignore')
+                    logging.debug(f"Ricevuta risposta raw (da {addr}):\n---\n{response[:500]}...\n---")
+                    print(f"Debug UPnP: Ricevuta risposta raw (da {addr}):\n---\n{response[:500]}...\n--- (stderr)", file=sys.stderr) # Log risp raw (truncata)
                     
                     device_info = parse_upnp_response(response)
-                    device_info['ip'] = device_info['ip'] or addr[0]
+                    logging.debug(f"Info parsate: {device_info}")
+                    print(f"Debug UPnP: Info parsate: {device_info} (stderr)", file=sys.stderr)
+
+                    # Assicurati che device_info sia un dizionario valido prima di procedere
+                    if not isinstance(device_info, dict):
+                         logging.debug(f"parse_upnp_response non ha restituito un dizionario valido.")
+                         print(f"Debug UPnP: parse_upnp_response non ha restituito un dizionario valido. (stderr)", file=sys.stderr)
+                         continue # Salta questa risposta
+
+                    device_info['ip'] = device_info.get('ip') or addr[0] # Usa .get per sicurezza
                     
                     # Evita duplicati usando UUID o IP:Porta
-                    device_id = device_info.get('uuid') or f"{device_info['ip']}:{device_info['port']}"
+                    device_id = device_info.get('uuid') or (f"{device_info.get('ip')}:{device_info.get('port')}" if device_info.get('ip') else None)
+                    logging.debug(f"Generato device_id: {device_id}")
+                    print(f"Debug UPnP: Generato device_id: {device_id} (stderr)", file=sys.stderr)
+
+                    if not device_id:
+                        logging.debug("Dispositivo saltato - device_id vuoto.")
+                        print("Debug UPnP: Dispositivo saltato - device_id vuoto. (stderr)", file=sys.stderr)
+                        continue
+
                     if device_id not in unique_devices:
                         unique_devices.add(device_id)
-                        devices.append(UPnPDevice(**device_info))
+                        try:
+                           # Usa un dizionario filtrato per evitare KeyError con parametri mancanti in UPnPDevice
+                           # Assicurati che tutti i campi richiesti da UPnPDevice siano presenti o gestiti con None
+                           device_data_for_dataclass = {
+                               field.name: device_info.get(field.name) for field in UPnPDevice.__dataclass_fields__
+                           }
+                           # Gestisci esplicitamente 'services' che potrebbe essere None se parse_upnp_response fallisce in parte
+                           if device_data_for_dataclass.get('services') is None:
+                               device_data_for_dataclass['services'] = []
+
+                           devices.append(UPnPDevice(**device_data_for_dataclass))
+                           logging.debug(f"Trovato dispositivo unico e aggiunto: {device_id}")
+                           print(f"Debug UPnP: Trovato dispositivo unico e aggiunto: {device_id} (stderr)", file=sys.stderr)
+                        except TypeError as te:
+                           logging.error(f"Errore creando UPnPDevice per {device_id}: {te}. Dati: {device_info}")
+                           print(f"Errore creando UPnPDevice per {device_id}: {te}. Dati: {device_info} (stderr)", file=sys.stderr)
                         
                 except socket.timeout:
+                    logging.debug("Timeout ricezione risposte.")
+                    print("Debug UPnP: Timeout ricezione risposte. (stderr)", file=sys.stderr)
                     break
                 except Exception as e:
-                    print(f"Errore processing response: {str(e)}")
+                    logging.error(f"Errore processing response: {str(e)}")
+                    print(f"Errore processing response: {str(e)} (stderr)", file=sys.stderr)
                     continue
                     
         except Exception as e:
-            print(f"Errore durante la scansione: {str(e)}")
+            logging.error(f"Errore durante la scansione: {str(e)}")
+            print(f"Errore durante la scansione: {str(e)} (stderr)", file=sys.stderr)
         finally:
-            sock.close()
-            time.sleep(0.5)  # Breve pausa tra i tentativi
+            if 'sock' in locals() and sock:
+                sock.close()
+            # time.sleep(0.5)  # Breve pausa tra i tentativi (opzionale)
 
+    logging.debug(f"Scansione completata. Trovati {len(devices)} dispositivi.")
+    print(f"Debug UPnP: Scansione completata. Trovati {len(devices)} dispositivi. (stderr)", file=sys.stderr)
     return devices
 
 def save_to_json(devices: List[UPnPDevice], filename: str = 'upnp_scan.json'):
@@ -146,7 +208,7 @@ def save_to_json(devices: List[UPnPDevice], filename: str = 'upnp_scan.json'):
 
 def main():
     import sys
-    devices = scan_upnp_network()
+    devices = scan()
     
     result = {
         "protocol": "upnp",
